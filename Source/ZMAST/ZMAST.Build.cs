@@ -8,11 +8,11 @@ public class ZMAST : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 		
-		PublicIncludePaths.AddRange(new string[] { "ZMAST/Public/Player" });
+		PublicIncludePaths.AddRange(new string[] { "ZMAST/Public/Player", "ZMAST/Public/Components"});
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
