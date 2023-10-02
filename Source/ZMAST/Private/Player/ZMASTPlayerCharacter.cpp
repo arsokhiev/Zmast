@@ -10,7 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 
-AZMASTPlayerCharacter::AZMASTPlayerCharacter()
+AZMASTPlayerCharacter::AZMASTPlayerCharacter(const FObjectInitializer& ObjInit) : Super(ObjInit)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -69,10 +69,19 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Look);
+		
 		// No jump
 		//EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
 		//EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+
+		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Run);
+		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Run);
 	}
+}
+
+bool AZMASTPlayerCharacter::IsRunning() const
+{
+	return WantsToRun && !GetVelocity().IsZero();
 }
 
 void AZMASTPlayerCharacter::Move(const FInputActionValue& Value)
@@ -101,4 +110,9 @@ void AZMASTPlayerCharacter::Look(const FInputActionValue& Value)
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
+}
+
+void AZMASTPlayerCharacter::Run(const FInputActionValue& Value)
+{
+	WantsToRun = Value.Get<bool>();
 }

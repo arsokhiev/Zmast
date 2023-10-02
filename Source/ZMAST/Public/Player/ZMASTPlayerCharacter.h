@@ -18,7 +18,7 @@ class ZMAST_API AZMASTPlayerCharacter : public AZMASTBaseCharacter
 	GENERATED_BODY()
 
 public:
-	AZMASTPlayerCharacter();
+	AZMASTPlayerCharacter(const FObjectInitializer& ObjInit);
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
@@ -38,6 +38,9 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* JumpAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* RunAction;
 	
 	virtual void BeginPlay() override;
 
@@ -46,8 +49,13 @@ public:
 
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+	virtual bool IsRunning() const override;
+
 private:
+	bool WantsToRun = false;
+	
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void Run(const FInputActionValue& Value);
 	
 };

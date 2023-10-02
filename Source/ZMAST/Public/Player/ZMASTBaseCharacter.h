@@ -15,7 +15,7 @@ class ZMAST_API AZMASTBaseCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
-	AZMASTBaseCharacter();
+	AZMASTBaseCharacter(const FObjectInitializer& ObjInit);
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
@@ -31,4 +31,6 @@ public:
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	virtual bool IsRunning() const;
 };

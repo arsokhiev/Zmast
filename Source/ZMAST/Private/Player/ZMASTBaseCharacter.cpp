@@ -2,10 +2,12 @@
 
 
 #include "Player/ZMASTBaseCharacter.h"
+#include "ZMASTMovementComponent.h"
 #include "Components/ZMASTHealthComponent.h"
 #include "Components/ZMASTWeaponComponent.h"
 
-AZMASTBaseCharacter::AZMASTBaseCharacter()
+AZMASTBaseCharacter::AZMASTBaseCharacter(const FObjectInitializer& ObjInit)
+	: ACharacter(ObjInit.SetDefaultSubobjectClass<UZMASTMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -29,5 +31,10 @@ void AZMASTBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+}
+
+bool AZMASTBaseCharacter::IsRunning() const
+{
+	return false;
 }
 
