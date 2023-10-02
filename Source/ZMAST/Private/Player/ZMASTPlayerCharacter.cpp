@@ -21,7 +21,8 @@ AZMASTPlayerCharacter::AZMASTPlayerCharacter()
 	
 	// Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Rotate character to moving direction
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 300.f, 0.f);
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0.f);
+	GetCharacterMovement()->bAllowPhysicsRotationDuringAnimRootMotion = 1;
 	
 	//GetCharacterMovement()->bConstrainToPlane = true;
 	//GetCharacterMovement()->bSnapToPlaneAtStart = true;
@@ -31,8 +32,8 @@ AZMASTPlayerCharacter::AZMASTPlayerCharacter()
 	SpringArmComponent->bUsePawnControlRotation = true;
 	SpringArmComponent->SocketOffset = FVector(0.0f, 100.0f, 80.0f);
 	SpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
-	SpringArmComponent->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f)); // хуй знает пока не понял
-	SpringArmComponent->TargetArmLength = 800.f;
+	SpringArmComponent->SetRelativeRotation(FRotator(-18.f, 0.f, 0.f));
+	SpringArmComponent->TargetArmLength = 555.f;
 	SpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 	SpringArmComponent->bDoCollisionTest = true; // Don't want to pull camera in when it collides with level
 
@@ -68,8 +69,9 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Look);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		// No jump
+		//EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
+		//EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 	}
 }
 
