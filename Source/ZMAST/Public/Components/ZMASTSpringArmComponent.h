@@ -20,5 +20,8 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pitch", meta = (ClampMin = "-20", ClampMax = "-10"))
 	float ViewPitchMax_ = -13;
+	
+	UFUNCTION(BlueprintCallable, Category = SpringArm)
+	void SetTargetArmLength(float InTargetArmLength) { TargetArmLength = InTargetArmLength; }
 
 };

@@ -33,7 +33,7 @@ AZMASTPlayerCharacter::AZMASTPlayerCharacter(const FObjectInitializer& ObjInit) 
 	ZMASTSpringArmComponent->SocketOffset = FVector(0.0f, 100.0f, 80.0f);
 	ZMASTSpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
 	ZMASTSpringArmComponent->SetRelativeRotation(FRotator(-19.f, 0.f, 0.f));
-	ZMASTSpringArmComponent->TargetArmLength = 1000.f;
+	ZMASTSpringArmComponent->TargetArmLength = 888.f;
 	ZMASTSpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 	ZMASTSpringArmComponent->bDoCollisionTest = true; // Don't want to pull camera in when it collides with level
 	ZMASTSpringArmComponent->SetClampedViewPitch();
@@ -48,6 +48,9 @@ void AZMASTPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	check(CurveArmLength);
+	OnArmLengthTimelineProgress.BindUFunction(ZMASTSpringArmComponent, FName("SetTargetArmLength"));
+
 	if (AZMASTPlayerController* ZMASTPlayerController = Cast<AZMASTPlayerController>(Controller))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(ZMASTPlayerController->GetLocalPlayer()))
@@ -60,6 +63,7 @@ void AZMASTPlayerCharacter::BeginPlay()
 void AZMASTPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	ArmLengthTimeline.TickTimeline(DeltaSeconds);
 }
 
 void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -77,6 +81,8 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Run);
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Run);
+
+		EnhancedInputComponent->BindAction(MouseWheelAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::ChangeSpringArmTargetLength);
 	}
 }
 
@@ -116,4 +122,18 @@ void AZMASTPlayerCharacter::Look(const FInputActionValue& Value)
 void AZMASTPlayerCharacter::Run(const FInputActionValue& Value)
 {
 	WantsToRun = Value.Get<bool>();
+}
+
+void AZMASTPlayerCharacter::ChangeSpringArmTargetLength(const FInputActionValue& Value)
+{
+	ArmLengthTimeline.AddInterpFloat(CurveArmLength, OnArmLengthTimelineProgress);
+
+	if (-Value.Get<float>() > 0)
+	{
+		if (ZMASTSpringArmComponent->TargetArmLength <= 888) ArmLengthTimeline.PlayFromStart();
+	}
+	else if (-Value.Get<float>() < 0)
+	{
+		if (ZMASTSpringArmComponent->TargetArmLength >= 1666) ArmLengthTimeline.ReverseFromEnd();
+	}
 }

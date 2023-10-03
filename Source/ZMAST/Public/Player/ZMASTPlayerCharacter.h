@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Player/ZMASTBaseCharacter.h"
+#include "Components/TimelineComponent.h"
 #include "InputActionValue.h"
 #include "ZMASTPlayerCharacter.generated.h"
 
@@ -41,6 +42,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* RunAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* MouseWheelAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UCurveFloat* CurveArmLength;
 	
 	virtual void BeginPlay() override;
 
@@ -52,10 +59,14 @@ public:
 	virtual bool IsRunning() const override;
 
 private:
+	FOnTimelineFloat OnArmLengthTimelineProgress;
+	FTimeline ArmLengthTimeline;
+	
 	bool WantsToRun = false;
 	
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Run(const FInputActionValue& Value);
+	void ChangeSpringArmTargetLength(const FInputActionValue& Value);
 	
 };
