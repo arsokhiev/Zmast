@@ -3,7 +3,7 @@
 
 #include "Player/ZMASTPlayerCharacter.h"
 #include "ZMASTPlayerController.h"
-#include "GameFramework/SpringArmComponent.h"
+#include "Components/ZMASTSpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
@@ -27,18 +27,19 @@ AZMASTPlayerCharacter::AZMASTPlayerCharacter(const FObjectInitializer& ObjInit) 
 	//GetCharacterMovement()->bConstrainToPlane = true;
 	//GetCharacterMovement()->bSnapToPlaneAtStart = true;
 
-	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>("SpringArmComponent");
-	SpringArmComponent->SetupAttachment(GetRootComponent());
-	SpringArmComponent->bUsePawnControlRotation = true;
-	SpringArmComponent->SocketOffset = FVector(0.0f, 100.0f, 80.0f);
-	SpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
-	SpringArmComponent->SetRelativeRotation(FRotator(-18.f, 0.f, 0.f));
-	SpringArmComponent->TargetArmLength = 555.f;
-	SpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
-	SpringArmComponent->bDoCollisionTest = true; // Don't want to pull camera in when it collides with level
+	ZMASTSpringArmComponent = CreateDefaultSubobject<UZMASTSpringArmComponent>("SpringArmComponent");
+	ZMASTSpringArmComponent->SetupAttachment(GetRootComponent());
+	ZMASTSpringArmComponent->bUsePawnControlRotation = true;
+	ZMASTSpringArmComponent->SocketOffset = FVector(0.0f, 100.0f, 80.0f);
+	ZMASTSpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
+	ZMASTSpringArmComponent->SetRelativeRotation(FRotator(-19.f, 0.f, 0.f));
+	ZMASTSpringArmComponent->TargetArmLength = 1000.f;
+	ZMASTSpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	ZMASTSpringArmComponent->bDoCollisionTest = true; // Don't want to pull camera in when it collides with level
+	ZMASTSpringArmComponent->SetClampedViewPitch();
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
-	CameraComponent->SetupAttachment(SpringArmComponent);
+	CameraComponent->SetupAttachment(ZMASTSpringArmComponent);
 	CameraComponent->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 }
@@ -108,7 +109,7 @@ void AZMASTPlayerCharacter::Look(const FInputActionValue& Value)
 	if (Controller != nullptr)
 	{
 		AddControllerYawInput(LookAxisVector.X);
-		AddControllerPitchInput(LookAxisVector.Y);
+		AddControllerPitchInput(-LookAxisVector.Y);
 	}
 }
 

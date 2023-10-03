@@ -8,7 +8,7 @@
 #include "ZMASTPlayerCharacter.generated.h"
 
 class UCameraComponent;
-class USpringArmComponent;
+class UZMASTSpringArmComponent;
 class UInputMappingContext;
 class UInputAction;
 
@@ -22,7 +22,7 @@ public:
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	USpringArmComponent* SpringArmComponent;
+	UZMASTSpringArmComponent* ZMASTSpringArmComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	UCameraComponent* CameraComponent;
