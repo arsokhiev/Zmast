@@ -38,3 +38,17 @@ bool AZMASTBaseCharacter::IsRunning() const
 	return false;
 }
 
+float AZMASTBaseCharacter::GetMovementDirection() const
+{
+	if (GetVelocity().IsZero()) return 0.0f;
+
+	const auto NormalizedVelocity = GetVelocity().GetSafeNormal();
+	const auto ForwardVector = GetActorForwardVector();
+
+	const auto AngleDegrees = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(ForwardVector, NormalizedVelocity)));
+	const auto CrossProduct = FVector::CrossProduct(ForwardVector, NormalizedVelocity);
+
+	const auto ZSign = FMath::Sign(CrossProduct.Z);
+	
+	return CrossProduct.IsZero() ? AngleDegrees : AngleDegrees * ZSign;
+}

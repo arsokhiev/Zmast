@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Player/ZMASTBaseCharacter.h"
+#include "Components/ZMASTWeaponComponent.h"
 #include "Components/TimelineComponent.h"
 #include "InputActionValue.h"
 #include "ZMASTPlayerCharacter.generated.h"
@@ -23,7 +24,7 @@ public:
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
-	UZMASTSpringArmComponent* ZMASTSpringArmComponent;
+	UZMASTSpringArmComponent* SpringArmComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	UCameraComponent* CameraComponent;
@@ -47,7 +48,19 @@ protected:
 	UInputAction* MouseWheelAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* EquipWeaponAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AimAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UCurveFloat* CurveArmLength;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UCurveFloat* CurveAimShort;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UCurveFloat* CurveAimLong;
 	
 	virtual void BeginPlay() override;
 
@@ -56,11 +69,16 @@ public:
 
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+	UZMASTSpringArmComponent* GetSpringArmComponent() const { return SpringArmComponent; }
+
 	virtual bool IsRunning() const override;
 
 private:
-	FOnTimelineFloat OnArmLengthTimelineProgress;
+	FOnTimelineFloat ArmLengthTimelineProgress;
+	FOnTimelineFloat AimTimelineProgress;
+	
 	FTimeline ArmLengthTimeline;
+	FTimeline AimTimeline;
 	
 	bool WantsToRun = false;
 	
@@ -68,5 +86,9 @@ private:
 	void Look(const FInputActionValue& Value);
 	void Run(const FInputActionValue& Value);
 	void ChangeSpringArmTargetLength(const FInputActionValue& Value);
+	void ChangeWeaponState(const FInputActionValue& Value);
+
+	void EnableAim(const FInputActionValue& Value);
+	void DisableAim(const FInputActionValue& Value);
 	
 };

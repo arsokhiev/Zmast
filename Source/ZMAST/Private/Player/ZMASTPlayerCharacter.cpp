@@ -2,6 +2,7 @@
 
 
 #include "Player/ZMASTPlayerCharacter.h"
+#include "AnimDataControllerActions.h"
 #include "ZMASTPlayerController.h"
 #include "Components/ZMASTSpringArmComponent.h"
 #include "Camera/CameraComponent.h"
@@ -9,6 +10,9 @@
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "ZMAST/ZMASTUtils.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogPlayerCharacter, All, All)
 
 AZMASTPlayerCharacter::AZMASTPlayerCharacter(const FObjectInitializer& ObjInit) : Super(ObjInit)
 {
@@ -23,23 +27,20 @@ AZMASTPlayerCharacter::AZMASTPlayerCharacter(const FObjectInitializer& ObjInit) 
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Rotate character to moving direction
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0.f);
 	GetCharacterMovement()->bAllowPhysicsRotationDuringAnimRootMotion = 1;
-	
-	//GetCharacterMovement()->bConstrainToPlane = true;
-	//GetCharacterMovement()->bSnapToPlaneAtStart = true;
 
-	ZMASTSpringArmComponent = CreateDefaultSubobject<UZMASTSpringArmComponent>("SpringArmComponent");
-	ZMASTSpringArmComponent->SetupAttachment(GetRootComponent());
-	ZMASTSpringArmComponent->bUsePawnControlRotation = true;
-	ZMASTSpringArmComponent->SocketOffset = FVector(0.0f, 100.0f, 80.0f);
-	ZMASTSpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
-	ZMASTSpringArmComponent->SetRelativeRotation(FRotator(-19.f, 0.f, 0.f));
-	ZMASTSpringArmComponent->TargetArmLength = 888.f;
-	ZMASTSpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
-	ZMASTSpringArmComponent->bDoCollisionTest = true; // Don't want to pull camera in when it collides with level
-	ZMASTSpringArmComponent->SetClampedViewPitch();
+	SpringArmComponent = CreateDefaultSubobject<UZMASTSpringArmComponent>("SpringArmComponent");
+	SpringArmComponent->SetupAttachment(GetRootComponent());
+	SpringArmComponent->bUsePawnControlRotation = true;
+	SpringArmComponent->SocketOffset = FVector(0.0f, 80.0f, 60.0f);
+	SpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
+	SpringArmComponent->SetRelativeRotation(FRotator(-19.f, 0.f, 0.f));
+	SpringArmComponent->TargetArmLength = 888.f;
+	SpringArmComponent->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	SpringArmComponent->bDoCollisionTest = true; // Don't want to pull camera in when it collides with level
+	SpringArmComponent->SetClampedViewPitch();
 
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
-	CameraComponent->SetupAttachment(ZMASTSpringArmComponent);
+	CameraComponent->SetupAttachment(SpringArmComponent);
 	CameraComponent->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 }
@@ -49,7 +50,11 @@ void AZMASTPlayerCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	check(CurveArmLength);
-	OnArmLengthTimelineProgress.BindUFunction(ZMASTSpringArmComponent, FName("SetTargetArmLength"));
+	check(CurveAimShort);
+	check(CurveAimLong);
+	
+	ArmLengthTimelineProgress.BindDynamic(SpringArmComponent, &UZMASTSpringArmComponent::SetTargetArmLength);
+	AimTimelineProgress.BindDynamic(SpringArmComponent, &UZMASTSpringArmComponent::SetTargetArmLength);
 
 	if (AZMASTPlayerController* ZMASTPlayerController = Cast<AZMASTPlayerController>(Controller))
 	{
@@ -64,6 +69,7 @@ void AZMASTPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	ArmLengthTimeline.TickTimeline(DeltaSeconds);
+	AimTimeline.TickTimeline(DeltaSeconds);
 }
 
 void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -83,12 +89,17 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Run);
 
 		EnhancedInputComponent->BindAction(MouseWheelAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::ChangeSpringArmTargetLength);
+
+		EnhancedInputComponent->BindAction(EquipWeaponAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::ChangeWeaponState);
+
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::EnableAim);
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::DisableAim);
 	}
 }
 
 bool AZMASTPlayerCharacter::IsRunning() const
 {
-	return WantsToRun && !GetVelocity().IsZero();
+	return WantsToRun && !WeaponComponent->IsArmed() && !GetVelocity().IsZero();
 }
 
 void AZMASTPlayerCharacter::Move(const FInputActionValue& Value)
@@ -126,14 +137,59 @@ void AZMASTPlayerCharacter::Run(const FInputActionValue& Value)
 
 void AZMASTPlayerCharacter::ChangeSpringArmTargetLength(const FInputActionValue& Value)
 {
-	ArmLengthTimeline.AddInterpFloat(CurveArmLength, OnArmLengthTimelineProgress);
-
+	ArmLengthTimeline.AddInterpFloat(CurveArmLength, ArmLengthTimelineProgress);
+	
 	if (-Value.Get<float>() > 0)
 	{
-		if (ZMASTSpringArmComponent->TargetArmLength <= 888) ArmLengthTimeline.PlayFromStart();
+		if (SpringArmComponent->TargetArmLength <= CurveArmLength->FloatCurve.GetFirstKey().Value)
+		{
+			ArmLengthTimeline.PlayFromStart();
+		}
 	}
 	else if (-Value.Get<float>() < 0)
 	{
-		if (ZMASTSpringArmComponent->TargetArmLength >= 1666) ArmLengthTimeline.ReverseFromEnd();
+		if (SpringArmComponent->TargetArmLength >= CurveArmLength->FloatCurve.GetLastKey().Value)
+		{
+			ArmLengthTimeline.ReverseFromEnd();
+		}
 	}
+}
+
+void AZMASTPlayerCharacter::ChangeWeaponState(const FInputActionValue& Value)
+{
+	WeaponComponent->IsArmed() ? WeaponComponent->Disarm() : WeaponComponent->Arm();
+}
+
+void AZMASTPlayerCharacter::EnableAim(const FInputActionValue& Value)
+{
+	if (!WeaponComponent->IsArmed()) return;
+	
+	bUseControllerRotationYaw = true;
+	bUseControllerRotationRoll = true;
+
+	if (SpringArmComponent->TargetArmLength == CurveAimShort->FloatCurve.GetFirstKey().Value)
+	{
+		AimTimeline.AddInterpFloat(CurveAimShort, AimTimelineProgress);
+		AimTimeline.PlayFromStart();
+	}
+	else if (SpringArmComponent->TargetArmLength == CurveAimLong->FloatCurve.GetFirstKey().Value)
+	{
+		AimTimeline.AddInterpFloat(CurveAimLong, AimTimelineProgress);
+		AimTimeline.PlayFromStart();
+	}
+
+	SpringArmComponent->SetFullViewPitch();
+}
+
+void AZMASTPlayerCharacter::DisableAim(const FInputActionValue& Value)
+{
+	if (!WeaponComponent->IsArmed()) return;
+	
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+	
+	AimTimeline.AddInterpFloat(CurveAimShort, AimTimelineProgress);
+	AimTimeline.ReverseFromEnd();
+	
+	SpringArmComponent->SetClampedViewPitch();
 }
