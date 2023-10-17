@@ -18,19 +18,16 @@ AZMASTBaseCharacter::AZMASTBaseCharacter(const FObjectInitializer& ObjInit)
 void AZMASTBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 void AZMASTBaseCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 void AZMASTBaseCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
 }
 
 bool AZMASTBaseCharacter::IsRunning() const

@@ -6,11 +6,15 @@
 #include "ZMASTPlayerController.h"
 #include "Components/ZMASTSpringArmComponent.h"
 #include "Camera/CameraComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
+#include "Components/ZMASTMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "ZMAST/ZMASTUtils.h"
+#include "Components/SphereComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "ZMASTCoreTypes.h"
+#include "ZMASTMovementComponent.h"
+#include "ZMAST/Public/ZMASTUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayerCharacter, All, All)
 
@@ -24,13 +28,13 @@ AZMASTPlayerCharacter::AZMASTPlayerCharacter(const FObjectInitializer& ObjInit) 
 	bUseControllerRotationRoll = false;
 	
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Rotate character to moving direction
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 400.f, 0.f);
-	GetCharacterMovement()->bAllowPhysicsRotationDuringAnimRootMotion = 1;
+	MovementComponent = Cast<UZMASTMovementComponent>(GetCharacterMovement());
+	MovementComponent->bOrientRotationToMovement = true; // Rotate character to moving direction
+	MovementComponent->RotationRate = FRotator(0.f, 400.f, 0.f);
+	MovementComponent->bAllowPhysicsRotationDuringAnimRootMotion = 1;
 
 	SpringArmComponent = CreateDefaultSubobject<UZMASTSpringArmComponent>("SpringArmComponent");
 	SpringArmComponent->SetupAttachment(GetRootComponent());
-	SpringArmComponent->bUsePawnControlRotation = true;
 	SpringArmComponent->SocketOffset = FVector(0.0f, 80.0f, 60.0f);
 	SpringArmComponent->SetUsingAbsoluteRotation(true); // Don't want arm to rotate when character does
 	SpringArmComponent->SetRelativeRotation(FRotator(-19.f, 0.f, 0.f));
@@ -52,9 +56,17 @@ void AZMASTPlayerCharacter::BeginPlay()
 	check(CurveArmLength);
 	check(CurveAimShort);
 	check(CurveAimLong);
+	check(CurveStartShootFOV);
+
+	//CameraCollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &AZMASTPlayerCharacter::OnCameraCollisionBeginOverlap);
+	//CameraCollisionComponent->OnComponentEndOverlap.AddDynamic(this, &AZMASTPlayerCharacter::OnCameraCollisionEndOverlap);
 	
 	ArmLengthTimelineProgress.BindDynamic(SpringArmComponent, &UZMASTSpringArmComponent::SetTargetArmLength);
 	AimTimelineProgress.BindDynamic(SpringArmComponent, &UZMASTSpringArmComponent::SetTargetArmLength);
+	ShootFOVTimelineProgress.BindDynamic(CameraComponent, &UCameraComponent::SetFieldOfView);
+	CompleteShootFOVTimelineProgress.BindDynamic(CameraComponent, &UCameraComponent::SetFieldOfView);
+
+	OnStartMoving.AddUObject(WeaponComponent, &UZMASTWeaponComponent::StopFire);
 
 	if (AZMASTPlayerController* ZMASTPlayerController = Cast<AZMASTPlayerController>(Controller))
 	{
@@ -68,8 +80,11 @@ void AZMASTPlayerCharacter::BeginPlay()
 void AZMASTPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	
 	ArmLengthTimeline.TickTimeline(DeltaSeconds);
 	AimTimeline.TickTimeline(DeltaSeconds);
+	ShootFOVTimeline.TickTimeline(DeltaSeconds);
+	CompleteShootFOVTimeline.TickTimeline(DeltaSeconds);
 }
 
 void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -92,6 +107,9 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 		EnhancedInputComponent->BindAction(EquipWeaponAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::ChangeWeaponState);
 
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::StartFire);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::StopFire);
+		
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::EnableAim);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::DisableAim);
 	}
@@ -100,6 +118,37 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 bool AZMASTPlayerCharacter::IsRunning() const
 {
 	return WantsToRun && !WeaponComponent->IsArmed() && !GetVelocity().IsZero();
+}
+
+bool AZMASTPlayerCharacter::IsAiming() const
+{
+	return SpringArmComponent->TargetArmLength == CurveAimShort->FloatCurve.GetLastKey().Value;
+}
+
+void AZMASTPlayerCharacter::StartShootFOVChange()
+{
+	//UE_LOG(LogPlayerCharacter, Display, TEXT("%f - %f"), CameraComponent->FieldOfView, CurveStartShootFOV->FloatCurve.GetLastKey().Value);
+	if (CameraComponent->FieldOfView == CurveStartShootFOV->FloatCurve.GetFirstKey().Value)
+	{
+		ShootFOVTimeline.AddInterpFloat(CurveStartShootFOV, ShootFOVTimelineProgress);
+		ShootFOVTimeline.PlayFromStart();
+	}
+	else
+	{
+		ShootFOVTimeline.AddInterpFloat(CurveStartShootFOV, ShootFOVTimelineProgress);
+		ShootFOVTimeline.Play();
+	}
+}
+
+void AZMASTPlayerCharacter::CancelShootFOVChange()
+{
+	ShootFOVTimeline.Reverse();
+}
+
+void AZMASTPlayerCharacter::CompleteShootFOVChange()
+{
+	CompleteShootFOVTimeline.AddInterpFloat(CurveCompleteShootFOV, CompleteShootFOVTimelineProgress);
+	CompleteShootFOVTimeline.PlayFromStart();
 }
 
 void AZMASTPlayerCharacter::Move(const FInputActionValue& Value)
@@ -117,6 +166,8 @@ void AZMASTPlayerCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
+
+	OnStartMoving.Broadcast();
 }
 
 void AZMASTPlayerCharacter::Look(const FInputActionValue& Value)
@@ -157,7 +208,17 @@ void AZMASTPlayerCharacter::ChangeSpringArmTargetLength(const FInputActionValue&
 
 void AZMASTPlayerCharacter::ChangeWeaponState(const FInputActionValue& Value)
 {
-	WeaponComponent->IsArmed() ? WeaponComponent->Disarm() : WeaponComponent->Arm();
+	WeaponComponent->ChangeWeaponState();
+}
+
+void AZMASTPlayerCharacter::StartFire(const FInputActionValue& Value)
+{
+	WeaponComponent->StartFire();
+}
+
+void AZMASTPlayerCharacter::StopFire(const FInputActionValue& Value)
+{
+	WeaponComponent->StopFire();
 }
 
 void AZMASTPlayerCharacter::EnableAim(const FInputActionValue& Value)
@@ -170,12 +231,12 @@ void AZMASTPlayerCharacter::EnableAim(const FInputActionValue& Value)
 	if (SpringArmComponent->TargetArmLength == CurveAimShort->FloatCurve.GetFirstKey().Value)
 	{
 		AimTimeline.AddInterpFloat(CurveAimShort, AimTimelineProgress);
-		AimTimeline.PlayFromStart();
+		AimTimeline.Play();
 	}
 	else if (SpringArmComponent->TargetArmLength == CurveAimLong->FloatCurve.GetFirstKey().Value)
 	{
 		AimTimeline.AddInterpFloat(CurveAimLong, AimTimelineProgress);
-		AimTimeline.PlayFromStart();
+		AimTimeline.Play();
 	}
 
 	SpringArmComponent->SetFullViewPitch();
@@ -189,7 +250,37 @@ void AZMASTPlayerCharacter::DisableAim(const FInputActionValue& Value)
 	bUseControllerRotationRoll = false;
 	
 	AimTimeline.AddInterpFloat(CurveAimShort, AimTimelineProgress);
-	AimTimeline.ReverseFromEnd();
+	AimTimeline.Reverse();
 	
 	SpringArmComponent->SetClampedViewPitch();
+}
+
+void AZMASTPlayerCharacter::OnCameraCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	CheckCameraOverlap();
+}
+
+void AZMASTPlayerCharacter::OnCameraCollisionEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	CheckCameraOverlap();
+}
+
+void AZMASTPlayerCharacter::CheckCameraOverlap()
+{
+	const auto bComponentsOverlap = CameraCollisionComponent->IsOverlappingComponent(GetCapsuleComponent());
+	GetMesh()->SetOwnerNoSee(bComponentsOverlap);
+
+	TArray<USceneComponent*> MeshChildren;
+	GetMesh()->GetChildrenComponents(true, MeshChildren);
+
+	for (auto MeshChild : MeshChildren)
+	{
+		const auto PrimitiveMeshChild = Cast<UPrimitiveComponent>(MeshChild);
+		if (PrimitiveMeshChild)
+		{
+			PrimitiveMeshChild->SetOwnerNoSee(bComponentsOverlap);
+		}
+	}
 }

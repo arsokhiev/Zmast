@@ -4,7 +4,7 @@
 #include "Components/ZMASTMovementComponent.h"
 #include "Player/ZMASTBaseCharacter.h"
 #include "Components/ZMASTWeaponComponent.h"
-#include "ZMAST/ZMASTUtils.h"
+#include "ZMAST/Public/ZMASTUtils.h"
 
 float UZMASTMovementComponent::GetMaxSpeed() const
 {

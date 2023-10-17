@@ -8,11 +8,29 @@ public class ZMAST : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core", 
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"HeadMountedDisplay", 
+			"EnhancedInput", 
+			"Niagara",
+			"PhysicsCore",
+			"AIModule",
+			"GameplayTasks",
+			"NavigationSystem"
+		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 		
-		PublicIncludePaths.AddRange(new string[] { "ZMAST/Public/Player", "ZMAST/Public/Components"});
+		PublicIncludePaths.AddRange(new string[]
+		{
+			"ZMAST/Public/Player", 
+			"ZMAST/Public/Components", 
+			"ZMAST/Public/Weapon"
+		});
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

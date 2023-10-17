@@ -9,8 +9,10 @@
 #include "InputActionValue.h"
 #include "ZMASTPlayerCharacter.generated.h"
 
+class UZMASTMovementComponent;
 class UCameraComponent;
 class UZMASTSpringArmComponent;
+class USphereComponent;
 class UInputMappingContext;
 class UInputAction;
 
@@ -22,12 +24,20 @@ class ZMAST_API AZMASTPlayerCharacter : public AZMASTBaseCharacter
 public:
 	AZMASTPlayerCharacter(const FObjectInitializer& ObjInit);
 
+	friend UZMASTWeaponComponent;
+
 protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	UZMASTMovementComponent* MovementComponent;
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	UZMASTSpringArmComponent* SpringArmComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
 	UCameraComponent* CameraComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	USphereComponent* CameraCollisionComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputMappingContext* InputMappingContext;
@@ -51,6 +61,9 @@ protected:
 	UInputAction* EquipWeaponAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* FireAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AimAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -61,6 +74,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UCurveFloat* CurveAimLong;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UCurveFloat* CurveStartShootFOV;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UCurveFloat* CurveCompleteShootFOV;
 	
 	virtual void BeginPlay() override;
 
@@ -72,13 +91,24 @@ public:
 	UZMASTSpringArmComponent* GetSpringArmComponent() const { return SpringArmComponent; }
 
 	virtual bool IsRunning() const override;
+	bool IsAiming() const;
+	
+	void StartShootFOVChange();
+	void CancelShootFOVChange();
+	void CompleteShootFOVChange();
 
 private:
+	FOnStartMoving OnStartMoving;
+	
 	FOnTimelineFloat ArmLengthTimelineProgress;
 	FOnTimelineFloat AimTimelineProgress;
+	FOnTimelineFloat ShootFOVTimelineProgress;
+	FOnTimelineFloat CompleteShootFOVTimelineProgress;
 	
 	FTimeline ArmLengthTimeline;
 	FTimeline AimTimeline;
+	FTimeline ShootFOVTimeline;
+	FTimeline CompleteShootFOVTimeline;
 	
 	bool WantsToRun = false;
 	
@@ -88,7 +118,20 @@ private:
 	void ChangeSpringArmTargetLength(const FInputActionValue& Value);
 	void ChangeWeaponState(const FInputActionValue& Value);
 
+	void StartFire(const FInputActionValue& Value);
+	void StopFire(const FInputActionValue& Value);
+	
 	void EnableAim(const FInputActionValue& Value);
 	void DisableAim(const FInputActionValue& Value);
-	
+
+	UFUNCTION()
+	void OnCameraCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+									   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep,
+									   const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnCameraCollisionEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+									 UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	void CheckCameraOverlap();
 };
