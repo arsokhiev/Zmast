@@ -2,14 +2,13 @@
 
 #pragma once
 
+#include "UObject/ObjectMacros.h"
 #include "ZMASTCoreTypes.generated.h"
 
 // Weapon
 class AZMASTBaseWeapon;
 
-USTRUCT
-
-(BlueprintType)
+USTRUCT (BlueprintType)
 struct FWeaponData
 {
 	GENERATED_USTRUCT_BODY()
@@ -59,4 +58,12 @@ struct FImpactData
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "VFX")
 	USoundCue* Sound;
+};
+
+// Movement
+UENUM(BlueprintType)
+enum ECustomMovementMode
+{
+	CMOVE_Climbing      UMETA(DisplayName = "Climbing"),
+	CMOVE_MAX			UMETA(Hidden),
 };

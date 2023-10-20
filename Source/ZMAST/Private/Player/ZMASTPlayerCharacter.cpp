@@ -14,6 +14,7 @@
 #include "Components/CapsuleComponent.h"
 #include "ZMASTCoreTypes.h"
 #include "ZMASTMovementComponent.h"
+#include "Tasks/Task.h"
 #include "ZMAST/Public/ZMASTUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayerCharacter, All, All)
@@ -85,6 +86,8 @@ void AZMASTPlayerCharacter::Tick(float DeltaSeconds)
 	AimTimeline.TickTimeline(DeltaSeconds);
 	ShootFOVTimeline.TickTimeline(DeltaSeconds);
 	CompleteShootFOVTimeline.TickTimeline(DeltaSeconds);
+
+	//DrawDebugCapsule(GetWorld(), GetActorLocation(), 76, 30, FQuat::Identity, FColor::Red);
 }
 
 void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -96,9 +99,10 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Look);
 		
-		// No jump
-		//EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
-		//EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Climb);
+		EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Climb);
+		
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Run);
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Run);
@@ -117,7 +121,17 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 bool AZMASTPlayerCharacter::IsRunning() const
 {
-	return WantsToRun && !WeaponComponent->IsArmed() && !GetVelocity().IsZero();
+	return bWantsToRun && !WeaponComponent->IsArmed() && !GetVelocity().IsZero();
+}
+
+bool AZMASTPlayerCharacter::WantsToClimb() const
+{
+	return bWantsToClimb;
+}
+
+void AZMASTPlayerCharacter::WantsToClimb(bool Value)
+{
+	bWantsToClimb = Value;
 }
 
 bool AZMASTPlayerCharacter::IsAiming() const
@@ -153,20 +167,37 @@ void AZMASTPlayerCharacter::CompleteShootFOVChange()
 
 void AZMASTPlayerCharacter::Move(const FInputActionValue& Value)
 {
-	FVector2D MovementVector = Value.Get<FVector2d>();
+	if (!Controller) return;
 
-	if (Controller != nullptr)
+	const FVector2D MovementVector = Value.Get<FVector2d>();
+
+	FVector ForwardDirection, RightDirection;
+
+	if (MovementComponent->IsClimbing())
 	{
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
+		//UE_LOG(LogPlayerCharacter, Display, TEXT("AZMASTPlayerCharacter::Move"));
+		ForwardDirection = FVector::CrossProduct(MovementComponent->GetClimbSurfaceNormal(), -GetActorRightVector());
+		RightDirection = FVector::CrossProduct(MovementComponent->GetClimbSurfaceNormal(), GetActorUpVector());
 
-		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+		const auto ForwardEnd = GetActorLocation() + ForwardDirection * 500;
+		const auto RightEnd = GetActorLocation() + RightDirection * 500;
+		//DrawDebugLine(GetWorld(), GetActorLocation(), ForwardEnd, FColor::Red);
+		//DrawDebugLine(GetWorld(), GetActorLocation(), RightEnd, FColor::Green);
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
+	else
+	{
+		const FRotator Rotation = Controller->GetControlRotation();
+		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
+		ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+		RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+		AddMovementInput(ForwardDirection, MovementVector.Y);
+		AddMovementInput(RightDirection, MovementVector.X);
+	}
 	OnStartMoving.Broadcast();
 }
 
@@ -181,9 +212,22 @@ void AZMASTPlayerCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void AZMASTPlayerCharacter::Climb(const FInputActionValue& Value)
+{
+	const auto Val = Value.Get<bool>();
+	if (!MovementComponent->IsClimbing() && Val)
+	{
+		MovementComponent->TryClimbing();
+	}
+	else
+	{
+		MovementComponent->CancelClimbing();
+	}
+}
+
 void AZMASTPlayerCharacter::Run(const FInputActionValue& Value)
 {
-	WantsToRun = Value.Get<bool>();
+	bWantsToRun = Value.Get<bool>();
 }
 
 void AZMASTPlayerCharacter::ChangeSpringArmTargetLength(const FInputActionValue& Value)

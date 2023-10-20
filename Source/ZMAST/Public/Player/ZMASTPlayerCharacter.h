@@ -47,6 +47,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* LookAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* ClimbAction;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* JumpAction;
@@ -84,6 +87,9 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
+    UFUNCTION(BlueprintPure)
+	UZMASTMovementComponent* GetZMASTMovementComponent() const { return MovementComponent; }
+
 	virtual void Tick(float DeltaSeconds) override;
 
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
@@ -91,6 +97,8 @@ public:
 	UZMASTSpringArmComponent* GetSpringArmComponent() const { return SpringArmComponent; }
 
 	virtual bool IsRunning() const override;
+	bool WantsToClimb() const;
+	void WantsToClimb(bool Value);
 	bool IsAiming() const;
 	
 	void StartShootFOVChange();
@@ -110,10 +118,12 @@ private:
 	FTimeline ShootFOVTimeline;
 	FTimeline CompleteShootFOVTimeline;
 	
-	bool WantsToRun = false;
+	bool bWantsToRun = false;
+	bool bWantsToClimb = false;
 	
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void Climb(const FInputActionValue& Value);
 	void Run(const FInputActionValue& Value);
 	void ChangeSpringArmTargetLength(const FInputActionValue& Value);
 	void ChangeWeaponState(const FInputActionValue& Value);
