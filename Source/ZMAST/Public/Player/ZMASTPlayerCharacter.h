@@ -105,6 +105,8 @@ public:
 	void CancelShootFOVChange();
 	void CompleteShootFOVChange();
 
+	void TryJump() { Jump(FInputActionValue{}); }
+
 private:
 	FOnStartMoving OnStartMoving;
 	
@@ -123,6 +125,7 @@ private:
 	
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void Jump(const FInputActionValue& Value);
 	void Climb(const FInputActionValue& Value);
 	void Run(const FInputActionValue& Value);
 	void ChangeSpringArmTargetLength(const FInputActionValue& Value);

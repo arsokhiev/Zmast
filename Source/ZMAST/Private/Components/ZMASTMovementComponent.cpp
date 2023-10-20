@@ -87,6 +87,7 @@ void UZMASTMovementComponent::TryClimbing()
 	
 	if (CanStartClimbing())
 	{
+		PlayerCharacter->TryJump();
 		PlayerCharacter->WantsToClimb(true);
 	}
 }
@@ -99,6 +100,27 @@ void UZMASTMovementComponent::CancelClimbing()
 	PlayerCharacter->WantsToClimb(false);
 }
 
+void UZMASTMovementComponent::TryClimbDashing()
+{
+	if (ClimbDashCurve && bIsClimbDashing == false)
+	{
+		bIsClimbDashing = true;
+		CurrentClimbDashTime = 0.f;
+		
+		StoreClimbDashDirection();
+	}
+}
+
+bool UZMASTMovementComponent::IsClimbDashing() const
+{
+	return IsClimbing() && bIsClimbDashing;
+}
+
+FVector UZMASTMovementComponent::GetClimbDashDirection() const
+{
+	return ClimbDashDirection;
+}
+
 void UZMASTMovementComponent::InitAnimation()
 {
 	const auto ClimbStartedAnimNotify = AnimUtils::FindNotifyByClass<UZMASTClimbStartedAnimNotify>(LedgeClimbMontage);
@@ -109,6 +131,52 @@ void UZMASTMovementComponent::InitAnimation()
 		ClimbStartedAnimNotify->OnNotified.AddUObject(this, &UZMASTMovementComponent::ChangeShouldBeStraightUp);
 		ClimbFinishedAnimNotify->OnNotified.AddUObject(this, &UZMASTMovementComponent::ChangeShouldBeStraightUp);
 	}
+}
+
+void UZMASTMovementComponent::StoreClimbDashDirection()
+{
+	ClimbDashDirection = UpdatedComponent->GetUpVector();
+
+	const float AccelerationThreshold = MaxClimbingAcceleration / 10;
+	if (Acceleration.Length() > AccelerationThreshold)
+	{
+		ClimbDashDirection = Acceleration.GetSafeNormal();
+		UE_LOG(LogZMASTMovementComponent, Display, TEXT("%s"), *(ClimbDashDirection.ToString()));
+		//GEngine->AddOnScreenDebugMessage(-1, 1, FColor::Red, ClimbDashDirection.ToString());
+	}
+}
+
+void UZMASTMovementComponent::UpdateClimbDashState(float deltaTime)
+{
+	if (!bIsClimbDashing)
+	{
+		return;
+	}
+
+	CurrentClimbDashTime += deltaTime;
+
+	// Better to cache it when dash starts
+	float MinTime, MaxTime;
+	ClimbDashCurve->GetTimeRange(MinTime, MaxTime);
+	
+	if (CurrentClimbDashTime >= MaxTime)
+	{
+		StopClimbDashing();
+	}
+}
+
+void UZMASTMovementComponent::StopClimbDashing()
+{
+	bIsClimbDashing = false;
+	CurrentClimbDashTime = 0.f;
+	ClimbDashDirection = FVector::ZeroVector;
+}
+
+void UZMASTMovementComponent::AlignClimbDashDirection()
+{
+	const FVector HorizontalSurfaceNormal = GetClimbSurfaceNormal();
+	
+	ClimbDashDirection = FVector::VectorPlaneProject(ClimbDashDirection, HorizontalSurfaceNormal);
 }
 
 void UZMASTMovementComponent::ChangeShouldBeStraightUp(USkeletalMeshComponent* MeshComp)
@@ -242,6 +310,8 @@ void UZMASTMovementComponent::PhysClimbing(float deltaTime, int32 Iterations)
 		return;
 	}
 
+	UpdateClimbDashState(deltaTime);
+
 	ComputeClimbingVelocity(deltaTime);
 
 	const FVector OldLocation = UpdatedComponent->GetComponentLocation();
@@ -293,9 +363,19 @@ void UZMASTMovementComponent::ComputeClimbingVelocity(float deltaTime)
 
 	if (!HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity())
 	{
-		constexpr float Friction = 0.0f;
-		constexpr bool bFluid = false;
-		CalcVelocity(deltaTime, Friction, bFluid, BrakingDecelerationClimbing);
+		if (bIsClimbDashing)
+		{
+			AlignClimbDashDirection();
+
+			const float CurrentCurveSpeed = ClimbDashCurve->GetFloatValue(CurrentClimbDashTime);
+			Velocity = ClimbDashDirection * CurrentCurveSpeed;
+		}
+		else
+		{
+			constexpr float Friction = 0.0f;
+			constexpr bool bFluid = false;
+			CalcVelocity(deltaTime, Friction, bFluid, BrakingDecelerationClimbing);
+		}
 	}
 
 	ApplyRootMotionToVelocity(deltaTime);
@@ -315,6 +395,8 @@ bool UZMASTMovementComponent::ShouldStopClimbing() const
 
 void UZMASTMovementComponent::StopClimbing(float deltaTime, int32 Iterations)
 {
+	StopClimbDashing();
+	
 	const auto PlayerCharacter = Cast<AZMASTPlayerCharacter>(GetOwner());
 	if (!PlayerCharacter) return;
 
@@ -344,12 +426,15 @@ void UZMASTMovementComponent::SnapToClimbingSurface(float deltaTime) const
 	const FVector Forward = UpdatedComponent->GetForwardVector();
 	const FVector Location = UpdatedComponent->GetComponentLocation();
 	const FQuat Rotation = UpdatedComponent->GetComponentQuat();
-
+	
 	const FVector ForwardDifference = (CurrentClimbingPosition - Location).ProjectOnTo(Forward);
+	
 	const FVector Offset = -CurrentClimbingNormal * (ForwardDifference.Length() - DistanceFromSurface);
 
 	constexpr bool bSweep = true;
-	UpdatedComponent->MoveComponent(Offset * ClimbingSnapSpeed * deltaTime, Rotation, bSweep);
+
+	const float SnapSpeed = ClimbingSnapSpeed * ((Velocity.Length() / MaxClimbingSpeed) + 1);
+	UpdatedComponent->MoveComponent(Offset * SnapSpeed * deltaTime, Rotation, bSweep);
 }
 
 FQuat UZMASTMovementComponent::GetClimbingRotation(float deltaTime) const

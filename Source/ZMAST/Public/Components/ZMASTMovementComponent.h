@@ -36,6 +36,15 @@ public:
 	void TryClimbing();
 	void CancelClimbing();
 
+	UFUNCTION(BlueprintCallable)
+	void TryClimbDashing();
+
+	UFUNCTION(BlueprintPure)
+	bool IsClimbDashing() const;
+	
+	UFUNCTION(BlueprintPure)
+	FVector GetClimbDashDirection() const;
+
 protected:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Character movement: Climbing")
 	int CollisionCapsuleRadius = 50;
@@ -74,8 +83,8 @@ protected:
 	UAnimMontage* LedgeClimbMontage;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Character Movement: Climbing")
-	UAnimMontage* StandMontage;
-
+	UCurveFloat* ClimbDashCurve;
+	
 	UPROPERTY()
 	UAnimInstance* AnimInstance;
 	
@@ -84,6 +93,15 @@ protected:
 	FCollisionQueryParams ClimbQueryParams;
 
 private:
+	FVector ClimbDashDirection;
+	bool bIsClimbDashing = false;
+	float CurrentClimbDashTime;
+
+	void StoreClimbDashDirection();
+	void UpdateClimbDashState(float deltaTime);
+	void StopClimbDashing();
+	void AlignClimbDashDirection();
+	
 	bool bShouldBeStraightUp = false;
 	void ChangeShouldBeStraightUp(USkeletalMeshComponent* MeshComp);
 	

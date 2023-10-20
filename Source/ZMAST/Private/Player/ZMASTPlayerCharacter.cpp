@@ -100,9 +100,9 @@ void AZMASTPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AZMASTPlayerCharacter::Look);
 		
 		EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Climb);
-		EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Climb);
+		//EnhancedInputComponent->BindAction(ClimbAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Climb);
 		
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Jump);
 
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Started, this, &AZMASTPlayerCharacter::Run);
 		EnhancedInputComponent->BindAction(RunAction, ETriggerEvent::Completed, this, &AZMASTPlayerCharacter::Run);
@@ -209,6 +209,18 @@ void AZMASTPlayerCharacter::Look(const FInputActionValue& Value)
 	{
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(-LookAxisVector.Y);
+	}
+}
+
+void AZMASTPlayerCharacter::Jump(const FInputActionValue& Value)
+{
+	if (MovementComponent->IsClimbing())
+	{
+		MovementComponent->TryClimbDashing();
+	}
+	else
+	{
+		Super::Jump();
 	}
 }
 
